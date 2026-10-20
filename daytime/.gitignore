@@ -1,0 +1,4 @@
+*.o
+*.out
+daytime_client
+.DS_Store

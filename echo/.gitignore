@@ -1,0 +1,4 @@
+*.o
+*.out
+echo_client
+.DS_Store
