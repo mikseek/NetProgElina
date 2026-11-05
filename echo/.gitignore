@@ -1,4 +1,5 @@
 *.o
 *.out
 echo_client
+echo_server
 .DS_Store
