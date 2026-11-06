@@ -1,38 +1,17 @@
 #include <iostream>
-#include <cerrno>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
 
 const int PORT = 44214;
 const int BUF_SIZE = 1024;
-
-bool send_all(int sock, const char* data, size_t length) {
-    size_t sent = 0;
-
-    while (sent < length) {
-        ssize_t n = send(sock, data + sent,
-                         length - sent, MSG_NOSIGNAL);
-        if (n < 0 && errno == EINTR) continue;
-        if (n <= 0) return false;
-        sent += n;
-    }
-    return true;
-}
 
 int main() {
     int server_sock = socket(AF_INET, SOCK_STREAM, 0);
 
     if (server_sock == -1) {
         perror("socket");
-        return 1;
-    }
-
-    int opt = 1;
-    if (setsockopt(server_sock, SOL_SOCKET, SO_REUSEADDR,
-                   &opt, sizeof(opt)) == -1) {
-        perror("setsockopt");
-        close(server_sock);
         return 1;
     }
 
@@ -70,31 +49,47 @@ int main() {
         );
 
         if (client_sock == -1) {
-            if (errno == EINTR) continue;
             perror("accept");
             continue;
         }
 
-        std::cout << "Client connected\n";
+        std::cout << "Client connected" << std::endl;
 
         while (true) {
             ssize_t received = recv(
-                client_sock, buffer, sizeof(buffer), 0
+                client_sock, buffer, BUF_SIZE, 0
             );
 
             if (received == 0) {
-                std::cout << "Client disconnected\n";
+                std::cout << "Client disconnected"
+                          << std::endl;
                 break;
             }
 
-            if (received < 0) {
-                if (errno == EINTR) continue;
+            if (received == -1) {
                 perror("recv");
                 break;
             }
 
-            if (!send_all(client_sock, buffer, received)) {
-                std::cerr << "Send error\n";
+            ssize_t total_sent = 0;
+
+            while (total_sent < received) {
+                ssize_t sent = send(
+                    client_sock,
+                    buffer + total_sent,
+                    received - total_sent,
+                    MSG_NOSIGNAL
+                );
+
+                if (sent <= 0) {
+                    perror("send");
+                    break;
+                }
+
+                total_sent += sent;
+            }
+
+            if (total_sent != received) {
                 break;
             }
         }
